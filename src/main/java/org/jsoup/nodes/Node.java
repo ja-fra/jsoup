@@ -196,9 +196,9 @@ public abstract class Node implements Cloneable {
     }
 
     /**
-     Get a child node by index
+     Get a child node by its 0-based index.
      @param index index of child node
-     @return the child node at this index.
+     @return the child node at this index. Throws a {@code IndexOutOfBoundsException} if the index is out of bounds.
      */
     public Node childNode(int index) {
         return childNodes.get(index);
@@ -210,13 +210,32 @@ public abstract class Node implements Cloneable {
      @return list of children. If no children, returns an empty list.
      */
     public List<Node> childNodes() {
-        // actually returns the real list, as this method is hit many times during selection, and so is a GC time-sink
-        // leaving the documentation as is (warning of unmodifiability) to discourage out-of-API modifications
-        return childNodes;
+        return Collections.unmodifiableList(childNodes);
+    }
+
+    /**
+     * Returns a deep copy of this node's children. Changes made to these nodes will not be reflected in the original
+     * nodes
+     * @return a deep copy of this node's children
+     */
+    public List<Node> childNodesCopy() {
+        List<Node> children = new ArrayList<Node>(childNodes.size());
+        for (Node node : childNodes) {
+            children.add(node.clone());
+        }
+        return children;
+    }
+
+    /**
+     * Get the number of child nodes that this node holds.
+     * @return the number of child nodes that this node holds.
+     */
+    public final int childNodeSize() {
+        return childNodes.size();
     }
     
     protected Node[] childNodesAsArray() {
-        return childNodes.toArray(new Node[childNodes().size()]);
+        return childNodes.toArray(new Node[childNodeSize()]);
     }
 
     /**

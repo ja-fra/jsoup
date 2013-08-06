@@ -2,11 +2,14 @@ package org.jsoup.nodes;
 
 import org.jsoup.Jsoup;
 import org.jsoup.TextUtil;
+import org.jsoup.helper.StringUtil;
+import org.jsoup.parser.Tag;
 import org.jsoup.select.Elements;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.Map;
@@ -221,6 +224,12 @@ public class ElementTest {
     @Test public void testFormatHtml() {
         Document doc = Jsoup.parse("<title>Format test</title><div><p>Hello <span>jsoup <span>users</span></span></p><p>Good.</p></div>");
         assertEquals("<html>\n <head>\n  <title>Format test</title>\n </head>\n <body>\n  <div>\n   <p>Hello <span>jsoup <span>users</span></span></p>\n   <p>Good.</p>\n  </div>\n </body>\n</html>", doc.html());
+    }
+    
+    @Test public void testFormatOutline() {
+        Document doc = Jsoup.parse("<title>Format test</title><div><p>Hello <span>jsoup <span>users</span></span></p><p>Good.</p></div>");
+        doc.outputSettings().outline(true);
+        assertEquals("<html>\n <head>\n  <title>Format test</title>\n </head>\n <body>\n  <div>\n   <p>\n    Hello \n    <span>\n     jsoup \n     <span>users</span>\n    </span>\n   </p>\n   <p>Good.</p>\n  </div>\n </body>\n</html>", doc.html());
     }
 
     @Test public void testSetIndent() {
@@ -471,6 +480,31 @@ public class ElementTest {
         assertEquals("<div><p>One</p><p><span>Two</span></p></div><p><span>Two</span><span>Three</span></p>", TextUtil.stripNewlines(doc.body().html()));
     }
 
+    @Test public void testClonesClassnames() {
+        Document doc = Jsoup.parse("<div class='one two'></div>");
+        Element div = doc.select("div").first();
+        Set<String> classes = div.classNames();
+        assertEquals(2, classes.size());
+        assertTrue(classes.contains("one"));
+        assertTrue(classes.contains("two"));
+
+        Element copy = div.clone();
+        Set<String> copyClasses = copy.classNames();
+        assertEquals(2, copyClasses.size());
+        assertTrue(copyClasses.contains("one"));
+        assertTrue(copyClasses.contains("two"));
+        copyClasses.add("three");
+        copyClasses.remove("one");
+
+        assertTrue(classes.contains("one"));
+        assertFalse(classes.contains("three"));
+        assertFalse(copyClasses.contains("one"));
+        assertTrue(copyClasses.contains("three"));
+
+        assertEquals("", div.html());
+        assertEquals("", copy.html());
+    }
+
     @Test public void testTagNameSet() {
         Document doc = Jsoup.parse("<div><i>Hello</i>");
         doc.select("i").first().tagName("em");
@@ -538,5 +572,109 @@ public class ElementTest {
         assertEquals(2, els.size());
         assertEquals("<p>One</p>", els.get(0).outerHtml());
         assertEquals("<p>Three</p>", els.get(1).outerHtml());
+    }
+
+    @Test public void testChildThrowsIndexOutOfBoundsOnMissing() {
+        Document doc = Jsoup.parse("<div><p>One</p><p>Two</p></div>");
+        Element div = doc.select("div").first();
+
+        assertEquals(2, div.children().size());
+        assertEquals("One", div.child(0).text());
+
+        try {
+            div.child(3);
+            fail("Should throw index out of bounds");
+        } catch (IndexOutOfBoundsException e) {}
+    }
+
+    @Test
+    public void moveByAppend() {
+        // test for https://github.com/jhy/jsoup/issues/239
+        // can empty an element and append its children to another element
+        Document doc = Jsoup.parse("<div id=1>Text <p>One</p> Text <p>Two</p></div><div id=2></div>");
+        Element div1 = doc.select("div").get(0);
+        Element div2 = doc.select("div").get(1);
+
+        assertEquals(4, div1.childNodeSize());
+        List<Node> children = div1.childNodes();
+        assertEquals(4, children.size());
+
+        div2.insertChildren(0, children);
+
+        assertEquals(0, children.size()); // children is backed by div1.childNodes, moved, so should be 0 now
+        assertEquals(0, div1.childNodeSize());
+        assertEquals(4, div2.childNodeSize());
+        assertEquals("<div id=\"1\"></div>\n<div id=\"2\">\n Text \n <p>One</p> Text \n <p>Two</p>\n</div>",
+            doc.body().html());
+    }
+
+    @Test
+    public void insertChildrenArgumentValidation() {
+        Document doc = Jsoup.parse("<div id=1>Text <p>One</p> Text <p>Two</p></div><div id=2></div>");
+        Element div1 = doc.select("div").get(0);
+        Element div2 = doc.select("div").get(1);
+        List<Node> children = div1.childNodes();
+
+        try {
+            div2.insertChildren(6, children);
+            fail();
+        } catch (IllegalArgumentException e) {}
+
+        try {
+            div2.insertChildren(-5, children);
+            fail();
+        } catch (IllegalArgumentException e) {
+        }
+
+        try {
+            div2.insertChildren(0, null);
+            fail();
+        } catch (IllegalArgumentException e) {
+        }
+    }
+
+    @Test
+    public void insertChildrenAtPosition() {
+        Document doc = Jsoup.parse("<div id=1>Text1 <p>One</p> Text2 <p>Two</p></div><div id=2>Text3 <p>Three</p></div>");
+        Element div1 = doc.select("div").get(0);
+        Elements p1s = div1.select("p");
+        Element div2 = doc.select("div").get(1);
+
+        assertEquals(2, div2.childNodeSize());
+        div2.insertChildren(-1, p1s);
+        assertEquals(2, div1.childNodeSize()); // moved two out
+        assertEquals(4, div2.childNodeSize());
+        assertEquals(3, p1s.get(1).siblingIndex()); // should be last
+
+        List<Node> els = new ArrayList<Node>();
+        Element el1 = new Element(Tag.valueOf("span"), "").text("Span1");
+        Element el2 = new Element(Tag.valueOf("span"), "").text("Span2");
+        TextNode tn1 = new TextNode("Text4", "");
+        els.add(el1);
+        els.add(el2);
+        els.add(tn1);
+
+        assertNull(el1.parent());
+        div2.insertChildren(-2, els);
+        assertEquals(div2, el1.parent());
+        assertEquals(7, div2.childNodeSize());
+        assertEquals(3, el1.siblingIndex());
+        assertEquals(4, el2.siblingIndex());
+        assertEquals(5, tn1.siblingIndex());
+    }
+
+    @Test
+    public void insertChildrenAsCopy() {
+        Document doc = Jsoup.parse("<div id=1>Text <p>One</p> Text <p>Two</p></div><div id=2></div>");
+        Element div1 = doc.select("div").get(0);
+        Element div2 = doc.select("div").get(1);
+        Elements ps = doc.select("p").clone();
+        ps.first().text("One cloned");
+        div2.insertChildren(-1, ps);
+
+        assertEquals(4, div1.childNodeSize()); // not moved -- cloned
+        assertEquals(2, div2.childNodeSize());
+        assertEquals("<div id=\"1\">Text <p>One</p> Text <p>Two</p></div><div id=\"2\"><p>One cloned</p><p>Two</p></div>",
+            TextUtil.stripNewlines(doc.body().html()));
     }
 }

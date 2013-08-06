@@ -211,6 +211,7 @@ public class Document extends Element {
         private Charset charset = Charset.forName("UTF-8");
         private CharsetEncoder charsetEncoder = charset.newEncoder();
         private boolean prettyPrint = true;
+        private boolean outline = false;
         private int indentAmount = 1;
 
         public OutputSettings() {}
@@ -291,6 +292,25 @@ public class Document extends Element {
          */
         public OutputSettings prettyPrint(boolean pretty) {
             prettyPrint = pretty;
+            return this;
+        }
+        
+        /**
+         * Get if outline mode is enabled. Default is false. If enabled, the HTML output methods will consider
+         * all tags as block.
+         * @return if outline mode is enabled.
+         */
+        public boolean outline() {
+            return outline;
+        }
+        
+        /**
+         * Enable or disable HTML outline mode.
+         * @param outlineMode new outline setting
+         * @return this, for chaining
+         */
+        public OutputSettings outline(boolean outlineMode) {
+            outline = outlineMode;
             return this;
         }
 

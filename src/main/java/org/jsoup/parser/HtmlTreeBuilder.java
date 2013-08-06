@@ -4,6 +4,7 @@ import org.jsoup.helper.DescendableLinkedList;
 import org.jsoup.helper.StringUtil;
 import org.jsoup.helper.Validate;
 import org.jsoup.nodes.*;
+import org.jsoup.select.Elements;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -20,7 +21,7 @@ class HtmlTreeBuilder extends TreeBuilder {
 
     private boolean baseUriSetFromDoc = false;
     private Element headElement; // the current head element
-    private Element formElement; // the current form element
+    private FormElement formElement; // the current form element
     private Element contextElement; // fragment parse context -- could be null even if fragment parsing
     private DescendableLinkedList<Element> formattingElements = new DescendableLinkedList<Element>(); // active (open) formatting elements
     private List<Token.Character> pendingTableCharacters = new ArrayList<Token.Character>(); // chars in table to be shifted out
@@ -68,7 +69,17 @@ class HtmlTreeBuilder extends TreeBuilder {
             doc.appendChild(root);
             stack.push(root);
             resetInsertionMode();
-            // todo: setup form element to nearest form on context (up ancestor chain)
+
+            // setup form element to nearest form on context (up ancestor chain). ensures form controls are associated
+            // with form correctly
+            Elements contextChain = context.parents();
+            contextChain.add(0, context);
+            for (Element parent: contextChain) {
+                if (parent instanceof FormElement) {
+                    formElement = (FormElement) parent;
+                    break;
+                }
+            }
         }
 
         runParser();
@@ -144,10 +155,11 @@ class HtmlTreeBuilder extends TreeBuilder {
 
     Element insert(Token.StartTag startTag) {
         // handle empty unknown tags
-        // when the spec expects an empty tag, will directly hit insertEmpty, so won't generate fake end tag.
-        if (startTag.isSelfClosing() && !Tag.isKnownTag(startTag.name())) {
+        // when the spec expects an empty tag, will directly hit insertEmpty, so won't generate this fake end tag.
+        if (startTag.isSelfClosing()) {
             Element el = insertEmpty(startTag);
-            process(new Token.EndTag(el.tagName())); // ensure we get out of whatever state we are in
+            stack.add(el);
+            tokeniser.emit(new Token.EndTag(el.tagName()));  // ensure we get out of whatever state we are in. emitted for yielded processing
             return el;
         }
         
@@ -172,10 +184,24 @@ class HtmlTreeBuilder extends TreeBuilder {
         Element el = new Element(tag, baseUri, startTag.attributes);
         insertNode(el);
         if (startTag.isSelfClosing()) {
-            tokeniser.acknowledgeSelfClosingFlag();
-            if (!tag.isKnownTag()) // unknown tag, remember this is self closing for output
+            if (tag.isKnownTag()) {
+                if (tag.isSelfClosing()) tokeniser.acknowledgeSelfClosingFlag(); // if not acked, promulagates error
+            } else {
+                // unknown tag, remember this is self closing for output
                 tag.setSelfClosing();
+                tokeniser.acknowledgeSelfClosingFlag(); // not an distinct error
+            }
         }
+        return el;
+    }
+
+    FormElement insertForm(Token.StartTag startTag, boolean onStack) {
+        Tag tag = Tag.valueOf(startTag.name());
+        FormElement el = new FormElement(tag, baseUri, startTag.attributes);
+        setFormElement(el);
+        insertNode(el);
+        if (onStack)
+            stack.add(el);
         return el;
     }
 
@@ -202,6 +228,12 @@ class HtmlTreeBuilder extends TreeBuilder {
             insertInFosterParent(node);
         else
             currentElement().appendChild(node);
+
+        // connect form controls to their form element
+        if (node instanceof Element && ((Element) node).tag().isFormListed()) {
+            if (formElement != null)
+                formElement.addElement((Element) node);
+        }
     }
 
     Element pop() {
@@ -476,11 +508,11 @@ class HtmlTreeBuilder extends TreeBuilder {
         this.fosterInserts = fosterInserts;
     }
 
-    Element getFormElement() {
+    FormElement getFormElement() {
         return formElement;
     }
 
-    void setFormElement(Element formElement) {
+    void setFormElement(FormElement formElement) {
         this.formElement = formElement;
     }
 

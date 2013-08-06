@@ -538,7 +538,7 @@ public abstract class Evaluator {
     
     /**
      * css3 pseudo-class :root
-     * @see http://www.w3.org/TR/selectors/#root-pseudo
+     * @see <a href="http://www.w3.org/TR/selectors/#root-pseudo">:root selector</a>
      *
      */
     public static final class IsRoot extends Evaluator {

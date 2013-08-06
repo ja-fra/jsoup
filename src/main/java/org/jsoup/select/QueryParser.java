@@ -286,16 +286,13 @@ class QueryParser {
 			a = 2;
 			b = 0;
 		} else if (mAB.matches()) {
-			a = mAB.group(3) != null ? Integer.parseInt(mAB.group(1)
-					.replaceFirst("^\\+", "")) : 1;
-			b = mAB.group(4) != null ? Integer.parseInt(mAB.group(4)
-					.replaceFirst("^\\+", "")) : 0;
+			a = mAB.group(3) != null ? Integer.parseInt(mAB.group(1).replaceFirst("^\\+", "")) : 1;
+			b = mAB.group(4) != null ? Integer.parseInt(mAB.group(4).replaceFirst("^\\+", "")) : 0;
 		} else if (mB.matches()) {
 			a = 0;
 			b = Integer.parseInt(mB.group().replaceFirst("^\\+", ""));
 		} else {
-			throw new Selector.SelectorParseException(
-					"Could not parse nth-index '%s': unexpected format", argS);
+			throw new Selector.SelectorParseException("Could not parse nth-index '%s': unexpected format", argS);
 		}
 		if (ofType)
 			if (backwards)

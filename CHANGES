@@ -1,14 +1,59 @@
 jsoup changelog
 
-*** Release 1.7.2 [PENDING]
+*** Release 1.7.3 [PENDING]
+ * Introduced FormElement, providing easy access to form controls and their data, and the ability to submit forms
+   with Jsoup.Connect.
+
+*** Release 1.7.2 [2013-Jan-27]
+ * Added support for supplementary characters outside of the Basic Multilingual Plane.
+   <https://github.com/jhy/jsoup/issues/288> <https://github.com/jhy/jsoup/pull/289>
+
+ * Added support for structural pseudo CSS selectors, including :first-child, :last-child, :nth-child, :nth-last-child,
+   :first-of-type, :last-of-type, :nth-of-type, :nth-last-of-type, :only-child, :only-of-type, :empty, and :root
+   <https://github.com/jhy/jsoup/pull/208>
+
+ * Added a maximum body response size to Jsoup.Connection, to prevent running out of memory when trying to read
+   extremely large documents. The default is 1MB.
+
  * Refactored the Cleaner to traverse rather than recurse child nodes, to avoid the risk of overflowing the stack.
    <https://github.com/jhy/jsoup/issues/246>
+
+ * Added Element.insertChildren(), to easily insert a list of child nodes at a specific index.
+   <https://github.com/jhy/jsoup/issues/239>
+
+ * Added Node.childNodesCopy(), to create an independent copy of a Node's children.
 
  * When parsing in XML mode, preserve XML declarations (<?xml ... ?>).
    <https://github.com/jhy/jsoup/issues/242>
 
+ * Introduced Parser.parseXmlFragment(), to allow easy parsing of XML fragments.
+   <https://github.com/jhy/jsoup/issues/279>
+
  * Allow Whitelist test methods to be extended
    <https://github.com/jhy/jsoup/issues/85>
+
+ * Added Document.OutputSettings.outline mode, to aid HTML debugging by printing out in outline mode, similar to
+   browser HTML inspectors.
+   <https://github.com/jhy/jsoup/issues/273>
+
+ * When parsing, allow all tags to self-close. Tags that aren't expected to self-close will get an end tag.
+   <https://github.com/jhy/jsoup/issues/258>
+
+ * Fixed an issue when parsing <textarea>/RCData tags containing unescaped closing tags that would drop the traling >.
+
+ * Corrected the javadoc for Element#child() to note that it throws IndexOutOfBounds.
+   <https://github.com/jhy/jsoup/issues/277>
+
+ * When cloning an Element, reset the classnames set so as not to hold a pointer to the source's.
+   <https://github.com/jhy/jsoup/issues/278>
+
+ * Limit how far up the stack the formatting adoption agency algorithm will travel, to prevent the chance of a run-away
+   parse when the HTML stack is hopelessly deep.
+   <https://github.com/jhy/jsoup/issues/234>
+
+ * Modified Element.text() to build text by traversing child nodes rather than recursing. This avoids stack-overflow
+   errors when the DOM is very deep and the VM stack-size is low.
+   <https://github.com/jhy/jsoup/issues/271>
 
 *** Release 1.7.1 [2012-Sep-23]
  * Improved parse time, now 2.3x faster than previous release, with lower memory consumption.

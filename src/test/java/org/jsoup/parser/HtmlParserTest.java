@@ -284,7 +284,7 @@ public class HtmlParserTest {
         Element div = doc.getElementById("1");
         assertEquals("<html> <foo><&amp;", div.text());
         assertEquals(0, div.children().size());
-        assertEquals(1, div.childNodes().size()); // no elements, one text node
+        assertEquals(1, div.childNodeSize()); // no elements, one text node
     }
 
     @Test public void handlesInvalidStartTags() {
@@ -325,15 +325,10 @@ public class HtmlParserTest {
     }
 
     @Test public void handlesKnownEmptyBlocks() {
-        // if known tag, must be defined as self closing to allow as self closing. unkown tags can be self closing.
-        String h = "<div id='1' /><div id=2><img /><img></div> <hr /> hr text <hr> hr text two";
+        // if a known tag, allow self closing outside of spec, but force an end tag. unknown tags can be self closing.
+        String h = "<div id='1' /><div id=2><img /><img></div><a id=3 /><i /><foo /><foo>One</foo> <hr /> hr text <hr> hr text two";
         Document doc = Jsoup.parse(h);
-        Element div1 = doc.getElementById("1");
-        assertTrue(!div1.children().isEmpty()); // <div /> is treated as <div>...
-        assertTrue(doc.select("hr").first().children().isEmpty());
-        assertTrue(doc.select("hr").last().children().isEmpty());
-        assertTrue(doc.select("img").first().children().isEmpty());
-        assertTrue(doc.select("img").last().children().isEmpty());
+        assertEquals("<div id=\"1\"></div><div id=\"2\"><img /><img /></div><a id=\"3\"></a><i></i><foo /><foo>One</foo> <hr /> hr text <hr /> hr text two", TextUtil.stripNewlines(doc.body().html()));
     }
 
     @Test public void handlesSolidusAtAttributeEnd() {
@@ -741,5 +736,41 @@ public class HtmlParserTest {
         String html = "<?xml encoding='UTF-8' ?><body>One</body>";
         Document doc = Jsoup.parse(html);
         assertEquals("<!--?xml encoding='UTF-8' ?--> <html> <head></head> <body> One </body> </html>", StringUtil.normaliseWhitespace(doc.outerHtml()));
+    }
+
+    @Test public void handlesTagsInTextarea() {
+        String html = "<textarea><p>Jsoup</p></textarea>";
+        Document doc = Jsoup.parse(html);
+        assertEquals("<textarea>&lt;p&gt;Jsoup&lt;/p&gt;</textarea>", doc.body().html());
+    }
+
+    // form tests
+    @Test public void createsFormElements() {
+        String html = "<body><form><input id=1><input id=2></form></body>";
+        Document doc = Jsoup.parse(html);
+        Element el = doc.select("form").first();
+
+        assertTrue("Is form element", el instanceof FormElement);
+        FormElement form = (FormElement) el;
+        Elements controls = form.elements();
+        assertEquals(2, controls.size());
+        assertEquals("1", controls.get(0).id());
+        assertEquals("2", controls.get(1).id());
+    }
+
+    @Test public void associatedFormControlsWithDisjointForms() {
+        // form gets closed, isn't parent of controls
+        String html = "<table><tr><form><input type=hidden id=1><td><input type=text id=2></td><tr></table>";
+        Document doc = Jsoup.parse(html);
+        Element el = doc.select("form").first();
+
+        assertTrue("Is form element", el instanceof FormElement);
+        FormElement form = (FormElement) el;
+        Elements controls = form.elements();
+        assertEquals(2, controls.size());
+        assertEquals("1", controls.get(0).id());
+        assertEquals("2", controls.get(1).id());
+
+        assertEquals("<table><tbody><tr><form></form><input type=\"hidden\" id=\"1\" /><td><input type=\"text\" id=\"2\" /></td></tr><tr></tr></tbody></table>", TextUtil.stripNewlines(doc.body().html()));
     }
 }

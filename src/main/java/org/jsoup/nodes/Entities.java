@@ -80,14 +80,28 @@ public class Entities {
         StringBuilder accum = new StringBuilder(string.length() * 2);
         Map<Character, String> map = escapeMode.getMap();
 
-        for (int pos = 0; pos < string.length(); pos++) {
-            Character c = string.charAt(pos);
-            if (map.containsKey(c))
-                accum.append('&').append(map.get(c)).append(';');
-            else if (encoder.canEncode(c))
-                accum.append(c.charValue());
-            else
-                accum.append("&#").append((int) c).append(';');
+        final int length = string.length();
+        for (int offset = 0; offset < length; ) {
+            final int codePoint = string.codePointAt(offset);
+
+            // surrogate pairs, split implementation for efficiency on single char common case (saves creating strings, char[]):
+            if (codePoint < Character.MIN_SUPPLEMENTARY_CODE_POINT) {
+                final char c = (char) codePoint;
+                if (map.containsKey(c))
+                    accum.append('&').append(map.get(c)).append(';');
+                else if (encoder.canEncode(c))
+                    accum.append(c);
+                else
+                    accum.append("&#x").append(Integer.toHexString(codePoint)).append(';');
+            } else {
+                final String c = new String(Character.toChars(codePoint));
+                if (encoder.canEncode(c))
+                    accum.append(c);
+                else
+                    accum.append("&#x").append(Integer.toHexString(codePoint)).append(';');
+            }
+
+            offset += Character.charCount(codePoint);
         }
 
         return accum.toString();

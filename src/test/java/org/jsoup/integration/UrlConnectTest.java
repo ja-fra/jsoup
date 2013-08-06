@@ -163,7 +163,7 @@ public class UrlConnectTest {
         Connection.Response res = con.execute();
         Document doc = res.parse();
         assertEquals(404, res.statusCode());
-        assertEquals("Not Found", doc.select("h1").first().text());
+        assertEquals("404 Not Found", doc.select("h1").first().text());
     }
 
     @Test
@@ -220,5 +220,30 @@ public class UrlConnectTest {
         Document doc = res.parse(); // would throw an error if charset unsupported
         assertTrue(doc.text().contains("Hello!"));
         assertEquals("UTF-8", res.charset()); // set from default on parse
+    }
+
+    @Test
+    public void maxBodySize() throws IOException {
+        String url = "http://direct.infohound.net/tools/large.html"; // 280 K
+
+        Connection.Response defaultRes = Jsoup.connect(url).execute();
+        Connection.Response smallRes = Jsoup.connect(url).maxBodySize(50 * 1024).execute(); // crops
+        Connection.Response mediumRes = Jsoup.connect(url).maxBodySize(200 * 1024).execute(); // crops
+        Connection.Response largeRes = Jsoup.connect(url).maxBodySize(300 * 1024).execute(); // does not crop
+        Connection.Response unlimitedRes = Jsoup.connect(url).maxBodySize(0).execute();
+
+        int actualString = 280735;
+        assertEquals(actualString, defaultRes.body().length());
+        assertEquals(50 * 1024, smallRes.body().length());
+        assertEquals(200 * 1024, mediumRes.body().length());
+        assertEquals(actualString, largeRes.body().length());
+        assertEquals(actualString, unlimitedRes.body().length());
+
+        int actualDocText = 269541;
+        assertEquals(actualDocText, defaultRes.parse().text().length());
+        assertEquals(49165, smallRes.parse().text().length());
+        assertEquals(196577, mediumRes.parse().text().length());
+        assertEquals(actualDocText, largeRes.parse().text().length());
+        assertEquals(actualDocText, unlimitedRes.parse().text().length());
     }
 }

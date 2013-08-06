@@ -165,7 +165,7 @@ public class CleanerTest {
         os.charset("ASCII");
         os.escapeMode(Entities.EscapeMode.base);
         String customOut2 = Jsoup.clean(html, "http://foo.com/", Whitelist.relaxed(), os);
-        assertEquals("<div><p>&#8492;</p></div>", customOut2);
+        assertEquals("<div><p>&#x212c;</p></div>", customOut2);
     }
 
     @Test public void handlesFramesets() {
@@ -176,7 +176,7 @@ public class CleanerTest {
         Document dirtyDoc = Jsoup.parse(dirty);
         Document cleanDoc = new Cleaner(Whitelist.basic()).clean(dirtyDoc);
         assertFalse(cleanDoc == null);
-        assertEquals(0, cleanDoc.body().childNodes().size());
+        assertEquals(0, cleanDoc.body().childNodeSize());
     }
 
     @Test public void cleansInternationalText() {

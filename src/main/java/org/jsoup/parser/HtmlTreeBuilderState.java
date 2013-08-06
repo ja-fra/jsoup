@@ -346,8 +346,7 @@ enum HtmlTreeBuilderState {
                         if (tb.inButtonScope("p")) {
                             tb.process(new Token.EndTag("p"));
                         }
-                        Element form = tb.insert(startTag);
-                        tb.setFormElement(form);
+                        tb.insertForm(startTag, true);
                     } else if (name.equals("li")) {
                         tb.framesetOk(false);
                         LinkedList<Element> stack = tb.getStack();
@@ -664,7 +663,9 @@ enum HtmlTreeBuilderState {
                             Element commonAncestor = null;
                             boolean seenFormattingElement = false;
                             LinkedList<Element> stack = tb.getStack();
-                            for (int si = 0; si < stack.size(); si++) {
+                            // the spec doesn't limit to < 64, but in degenerate cases (9000+ stack depth) this prevents
+                            // run-aways
+                            for (int si = 0; si < stack.size() && si < 64; si++) {
                                 Element el = stack.get(si);
                                 if (el == formatEl) {
                                     commonAncestor = stack.get(si - 1);
@@ -721,7 +722,7 @@ enum HtmlTreeBuilderState {
                             }
 
                             Element adopter = new Element(Tag.valueOf(name), tb.getBaseUri());
-                            Node[] childNodes = furthestBlock.childNodes().toArray(new Node[furthestBlock.childNodes().size()]);
+                            Node[] childNodes = furthestBlock.childNodes().toArray(new Node[furthestBlock.childNodeSize()]);
                             for (Node childNode : childNodes) {
                                 adopter.appendChild(childNode); // append will reparent. thus the clone to avoid concurrent mod.
                             }
@@ -854,12 +855,12 @@ enum HtmlTreeBuilderState {
                     if (tb.getFormElement() != null)
                         return false;
                     else {
-                        Element form = tb.insertEmpty(startTag);
-                        tb.setFormElement(form);
+                        tb.insertForm(startTag, false);
                     }
                 } else {
                     return anythingElse(t, tb);
                 }
+                return true; // todo: check if should return processed http://www.whatwg.org/specs/web-apps/current-work/multipage/tree-construction.html#parsing-main-intable
             } else if (t.isEndTag()) {
                 Token.EndTag endTag = t.asEndTag();
                 String name = endTag.name();
@@ -879,6 +880,7 @@ enum HtmlTreeBuilderState {
                 } else {
                     return anythingElse(t, tb);
                 }
+                return true; // todo: as above todo
             } else if (t.isEOF()) {
                 if (tb.currentElement().nodeName().equals("html"))
                     tb.error(this);

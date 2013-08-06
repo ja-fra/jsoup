@@ -68,6 +68,11 @@ public class HttpConnection implements Connection {
         return this;
     }
 
+    public Connection maxBodySize(int bytes) {
+        req.maxBodySize(bytes);
+        return this;
+    }
+
     public Connection followRedirects(boolean followRedirects) {
         req.followRedirects(followRedirects);
         return this;
@@ -116,6 +121,14 @@ public class HttpConnection implements Connection {
             Validate.notEmpty(key, "Data key must not be empty");
             Validate.notNull(value, "Data value must not be null");
             req.data(KeyVal.create(key, value));
+        }
+        return this;
+    }
+
+    public Connection data(Collection<Connection.KeyVal> data) {
+        Validate.notNull(data, "Data collection must not be null");
+        for (Connection.KeyVal entry: data) {
+            req.data(entry);
         }
         return this;
     }
@@ -293,6 +306,7 @@ public class HttpConnection implements Connection {
 
     public static class Request extends Base<Connection.Request> implements Connection.Request {
         private int timeoutMilliseconds;
+        private int maxBodySizeBytes;
         private boolean followRedirects;
         private Collection<Connection.KeyVal> data;
         private boolean ignoreHttpErrors = false;
@@ -301,6 +315,7 @@ public class HttpConnection implements Connection {
 
       	private Request() {
             timeoutMilliseconds = 3000;
+            maxBodySizeBytes = 1024 * 1024; // 1MB
             followRedirects = true;
             data = new ArrayList<Connection.KeyVal>();
             method = Connection.Method.GET;
@@ -315,6 +330,16 @@ public class HttpConnection implements Connection {
         public Request timeout(int millis) {
             Validate.isTrue(millis >= 0, "Timeout milliseconds must be 0 (infinite) or greater");
             timeoutMilliseconds = millis;
+            return this;
+        }
+
+        public int maxBodySize() {
+            return maxBodySizeBytes;
+        }
+
+        public Connection.Request maxBodySize(int bytes) {
+            Validate.isTrue(bytes >= 0, "maxSize must be 0 (unlimited) or larger");
+            maxBodySizeBytes = bytes;
             return this;
         }
 
@@ -444,7 +469,7 @@ public class HttpConnection implements Connection {
                             new BufferedInputStream(new GZIPInputStream(dataStream)) :
                             new BufferedInputStream(dataStream);
 
-                    res.byteData = DataUtil.readToByteBuffer(bodyStream);
+                    res.byteData = DataUtil.readToByteBuffer(bodyStream, req.maxBodySize());
                     res.charset = DataUtil.getCharsetFromContentType(res.contentType); // may be null, readInputStream deals with it
                 } finally {
                     if (bodyStream != null) bodyStream.close();
